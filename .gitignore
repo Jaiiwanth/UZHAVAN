@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# environment variables (never commit secrets)
+.env.local
+.env.*.local
+.env.production
+
+# Vercel
+.vercel
