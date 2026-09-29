@@ -1,0 +1,21 @@
+{
+  "projectId": "12833880850335622540",
+  "title": "UZHAVAR OS CropChain Lens",
+  "deviceType": "DESKTOP",
+  "Last Sync Time": "2026-09-29T11:48:00.000Z",
+  "screens": {
+    "0c00196fdb57436491bb06c28f340cb7": {
+      "id": "0c00196fdb57436491bb06c28f340cb7",
+      "label": "UZHAVAR OS — CropChain Lens Workstation",
+      "sourceScreen": "projects/12833880850335622540/screens/0c00196fdb57436491bb06c28f340cb7",
+      "dimensions": {
+        "width": 2560,
+        "height": 6756
+      },
+      "canvasPosition": {
+        "x": 1600,
+        "y": 0
+      }
+    }
+  }
+}
