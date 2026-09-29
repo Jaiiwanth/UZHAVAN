@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/hooks/useLanguage';
-import { supabaseService, DbCropBatch } from '@/lib/supabase/service';
+import { localService, DbCropBatch } from '@/lib/service';
 import { Icon } from '@/components/ui/Icon';
 import { CreateBatchModal } from '@/components/batch/CreateBatchModal';
 import Link from 'next/link';
@@ -31,7 +31,7 @@ export default function DashboardPage() {
     if (!user) return;
     setLoadingBatches(true);
     try {
-      const data = await supabaseService.getBatchesForCurrentUser();
+      const data = await localService.getBatchesForCurrentUser();
       setBatches(data);
     } catch (err) {
       console.error('Failed to load user batches:', err);
@@ -43,7 +43,7 @@ export default function DashboardPage() {
   useEffect(() => {
     let isMounted = true;
     if (user) {
-      supabaseService.getBatchesForCurrentUser().then((data) => {
+      localService.getBatchesForCurrentUser().then((data) => {
         if (isMounted) {
           setBatches(data);
           setLoadingBatches(false);
@@ -173,7 +173,7 @@ export default function DashboardPage() {
             <div className="p-12 text-center">
               <div className="w-8 h-8 border-3 border-slate-200 border-t-slate-900 rounded-full animate-spin mx-auto"></div>
               <span className="text-xs text-slate-400 mt-3 block font-medium">
-                {isTa ? 'தரவுத்தளத்திலிருந்து தொகுதிகள் பெறப்படுகின்றன...' : 'Loading crop batches from Supabase...'}
+                {isTa ? 'தரவுத்தளத்திலிருந்து தொகுதிகள் பெறப்படுகின்றன...' : 'Loading verified crop batches...'}
               </span>
             </div>
           ) : batches.length === 0 ? (
@@ -278,7 +278,7 @@ export default function DashboardPage() {
         <div className="flex items-center space-x-3 text-[11px]">
           <span className="flex items-center gap-1 text-emerald-700 font-bold">
             <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
-            {isTa ? 'Supabase இணைப்பு: இணைக்கப்பட்டது' : 'Supabase State: Connected'}
+            {isTa ? 'உள்ளூர் சேமிப்பு: இயக்கத்தில் உள்ளது' : 'Storage State: Active'}
           </span>
           <span>•</span>
           <span>{isTa ? 'உழவர் பூட்டுதல் அற்றது' : 'Zero Farmer Lock-In'}</span>

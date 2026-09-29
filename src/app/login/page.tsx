@@ -73,27 +73,33 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-4 sm:p-6">
+    <div className="min-h-screen flex flex-col justify-between p-4 sm:p-6 relative overflow-hidden" style={{background: "linear-gradient(135deg, #0a0e1a 0%, #0f1923 40%, #0d1f17 70%, #0a1a0d 100%)"}}>
+      {/* Decorative background orbs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        <div style={{position:'absolute',top:'-15%',left:'-10%',width:'500px',height:'500px',borderRadius:'50%',background:'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)'}} />
+        <div style={{position:'absolute',bottom:'-20%',right:'-10%',width:'600px',height:'600px',borderRadius:'50%',background:'radial-gradient(circle, rgba(245,158,11,0.08) 0%, transparent 70%)'}} />
+        <div style={{position:'absolute',top:'40%',right:'15%',width:'300px',height:'300px',borderRadius:'50%',background:'radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)'}} />
+      </div>
       {/* Top Floating Pill Brand & Language Bar */}
       <header className="max-w-4xl mx-auto w-full flex items-center justify-between py-3">
         <Link href="/" className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+          <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-lg">
             U
           </div>
           <span className="font-extrabold text-slate-900 tracking-tight text-base">
-            UZHAVAR <span className="text-amber-500">OS</span>
+            UZHAVAR <span className="text-emerald-400">OS</span>
           </span>
         </Link>
 
         {/* Bilingual Selector */}
-        <div className="flex items-center space-x-1 bg-white/90 p-1 rounded-full border border-slate-200 shadow-xs">
+        <div className="flex items-center space-x-1 bg-white/10 backdrop-blur-md p-1 rounded-full border border-white/20 shadow-xs">
           <button
             type="button"
             onClick={() => setLang('en')}
             className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
               lang === 'en'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-white/60 hover:text-white'
             }`}
           >
             English
@@ -104,7 +110,7 @@ export default function LoginPage() {
             className={`px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
               lang === 'ta'
                 ? 'bg-amber-400 text-slate-950 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                : 'text-white/60 hover:text-white'
             }`}
           >
             தமிழ்
@@ -114,7 +120,7 @@ export default function LoginPage() {
 
       {/* Main Login / Register Card */}
       <main className="max-w-md w-full mx-auto my-auto py-6">
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-soft-card p-6 sm:p-8">
+        <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-white/20 shadow-2xl p-6 sm:p-8">
           <div className="text-center mb-6">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100/90 text-amber-950 font-bold text-xs rounded-full uppercase tracking-wider">
               <Icon name="sprout" size={14} className="text-amber-700" />
@@ -147,7 +153,7 @@ export default function LoginPage() {
               className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 mode === 'signin'
                   ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
+                  : 'text-white/60 hover:text-white'
               }`}
             >
               {isTa ? 'உள்நுழைக' : 'Sign In'}
@@ -161,7 +167,7 @@ export default function LoginPage() {
               className={`flex-1 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 mode === 'signup'
                   ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
+                  : 'text-white/60 hover:text-white'
               }`}
             >
               {isTa ? 'பதிவு செய்க' : 'Create Account'}
@@ -254,7 +260,7 @@ export default function LoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="text-center text-xs text-slate-400 py-3">
+      <footer className="text-center text-xs text-white/30 py-3">
         {isTa
           ? 'UZHAVAR OS • தமிழ்நாடு வேளாண் வம்சாவளி நெறிமுறை (TNOALP-2026) • உழவர் பூட்டுதல் அற்றது'
           : 'UZHAVAR OS • Tamil Nadu Open Agronomic Lineage Protocol (TNOALP-2026) • Zero Lock-In'}

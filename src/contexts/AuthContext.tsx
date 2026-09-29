@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { UserProfile, supabaseService } from '@/lib/supabase/service';
-import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
+import { UserProfile, localService } from '@/lib/service';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
@@ -23,7 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshUser = useCallback(async () => {
     try {
-      const current = await supabaseService.getCurrentUser();
+      const current = await localService.getCurrentUser();
       setUser(current);
     } catch {
       setUser(null);
@@ -35,49 +34,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
 
-    // Initial check
-    supabaseService.getCurrentUser().then((current) => {
-      if (isMounted) {
-        setUser(current);
-        setLoading(false);
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setUser(null);
-        setLoading(false);
-      }
-    });
-
-    // Supabase auth subscription for real session persistence
-    const supabase = getSupabaseBrowserClient();
-    let authSubscription: { unsubscribe: () => void } | null = null;
-
-    if (supabase && isSupabaseConfigured) {
-      const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (!isMounted) return;
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          if (session?.user) {
-            const current = await supabaseService.getCurrentUser();
-            if (isMounted) setUser(current);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          if (isMounted) setUser(null);
+    // Load active session from local storage
+    localService
+      .getCurrentUser()
+      .then((current) => {
+        if (isMounted) {
+          setUser(current);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setUser(null);
+          setLoading(false);
         }
       });
-      authSubscription = data.subscription;
-    }
 
     return () => {
       isMounted = false;
-      if (authSubscription) {
-        authSubscription.unsubscribe();
-      }
     };
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
-    const { user: authedUser, error } = await supabaseService.signInWithEmail(email, password);
+    const { user: authedUser, error } = await localService.signInWithEmail(email, password);
     setLoading(false);
 
     if (error || !authedUser) {
@@ -91,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signup = async (email: string, password: string, fullName: string) => {
     setLoading(true);
-    const { user: newUser, error } = await supabaseService.signUpWithEmail(email, password, fullName);
+    const { user: newUser, error } = await localService.signUpWithEmail(email, password, fullName);
     setLoading(false);
 
     if (error || !newUser) {
@@ -105,7 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setLoading(true);
-    await supabaseService.signOut();
+    await localService.signOut();
     setUser(null);
     setLoading(false);
     router.push('/login');

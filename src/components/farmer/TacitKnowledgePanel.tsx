@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { RelationalFactor, Language } from '@/types';
 import { Icon } from '@/components/ui/Icon';
-import { supabaseService } from '@/lib/supabase/service';
+import { localService } from '@/lib/service';
 
 export interface TacitKnowledgePanelProps {
   readonly factors: readonly RelationalFactor[];
@@ -84,7 +84,7 @@ export const TacitKnowledgePanel: React.FC<TacitKnowledgePanelProps> = ({
   const handleUpdate = async () => {
     if (batchId && noteText.trim()) {
       try {
-        await supabaseService.addBatchNote(batchId, noteText.trim(), 'field');
+        await localService.addBatchNote(batchId, noteText.trim(), 'field');
       } catch (err) {
         console.error('Failed to save batch note:', err);
       }

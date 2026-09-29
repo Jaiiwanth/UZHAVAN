@@ -3,7 +3,7 @@ export type Language = 'en' | 'ta';
 export type DispatchChannel = 'trader' | 'fpo' | 'rythu';
 
 // ==========================================
-// SUPABASE DATABASE ENTITY TYPES
+// DATABASE ENTITY TYPES
 // ==========================================
 
 export interface Profile {
@@ -216,7 +216,7 @@ export interface RelationalFactor {
 }
 
 // ==========================================
-// MEDIA ASSETS (Supabase Storage)
+// MEDIA ASSETS (LOCAL STORAGE)
 // ==========================================
 
 export type MediaAssetType = 'crop_image' | 'pdf_report' | 'certificate' | 'receipt' | 'other';

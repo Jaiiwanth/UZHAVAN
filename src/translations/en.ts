@@ -95,7 +95,7 @@ export const en = {
     status: 'Status',
     actions: 'Actions',
     openWorkstation: 'Open CropChain Workstation',
-    loadingBatches: 'Loading crop batches from Supabase...',
+    loadingBatches: 'Loading verified crop batches...',
     standardGrade: 'Standard Grade',
   },
 

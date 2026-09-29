@@ -4,7 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabaseService, DbCropBatch, DbChainStage } from '@/lib/supabase/service';
+import { localService, DbCropBatch, DbChainStage } from '@/lib/service';
 import { BatchInfo } from '@/types';
 import { useSimulation } from '@/hooks/useSimulation';
 import { useLanguage } from '@/hooks/useLanguage';
@@ -63,14 +63,14 @@ export default function BatchWorkstationPage({ params }: BatchPageProps) {
   const { setBatchQuantityKg } = simulation;
   const { activeNodeId, activeNode, isHighlighted, selectNode } = useNodeInspector();
 
-  // Load batch & stages from Supabase
+  // Load batch and chain stages
   useEffect(() => {
     let isMounted = true;
     async function loadBatch() {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await supabaseService.getBatchById(id);
+        const data = await localService.getBatchById(id);
         if (!isMounted) return;
 
         if (!data) {
@@ -83,7 +83,7 @@ export default function BatchWorkstationPage({ params }: BatchPageProps) {
           }
 
           // Fetch associated real chain stages
-          const stages = await supabaseService.getChainStages(data.id);
+          const stages = await localService.getChainStages(data.id);
           if (isMounted) {
             setChainStages(stages);
           }
@@ -142,7 +142,7 @@ export default function BatchWorkstationPage({ params }: BatchPageProps) {
         <div className="flex flex-col items-center space-y-4">
           <div className="w-10 h-10 border-4 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm font-bold text-slate-700 font-mono">
-            {lang === 'ta' ? 'பயிர் தொகுதி ஏற்றப்படுகிறது...' : 'Loading verified crop batch from Supabase...'}
+            {lang === 'ta' ? 'பயிர் தொகுதி ஏற்றப்படுகிறது...' : 'Loading verified crop batch...'}
           </p>
         </div>
       </div>
@@ -176,7 +176,7 @@ export default function BatchWorkstationPage({ params }: BatchPageProps) {
     );
   }
 
-  // Construct truthful BatchInfo from Supabase data without fabricated prices
+  // Construct truthful BatchInfo from verified data without fabricated prices
   const realBatch: BatchInfo = {
     lotId: batchData.batch_id,
     crop: lang === 'ta' && batchData.crop_name_tamil ? batchData.crop_name_tamil : batchData.crop_name,

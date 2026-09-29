@@ -19,7 +19,7 @@ A production-grade web application built for Tamil Nadu's agricultural producers
 - [Project Structure](#project-structure)
 - [Internationalization](#internationalization)
 - [Authentication & Security](#authentication--security)
-- [Supabase Setup](#supabase-setup)
+- [PostgreSQL Setup](#postgresql-setup)
 
 ---
 
@@ -63,8 +63,8 @@ UZHAVAR OS is an **Autonomous CropChain Lens Workstation** — a digital twin pl
 - Persisted language preference per user profile
 - Tamil Unicode throughout — no transliteration
 
-### Supabase-Backed Auth & Data
-- Email/password sign-up and sign-in via Supabase Auth
+### PostgreSQL-Backed Auth Supabase-Backed Auth & Data Data
+- Email/password sign-up and sign-in via PostgreSQL backend
 - Row Level Security (RLS) — strict tenant isolation
 - Offline-first with local storage fallback
 
@@ -83,8 +83,8 @@ UZHAVAR OS is an **Autonomous CropChain Lens Workstation** — a digital twin pl
 | **UI** | React 19, Tailwind CSS |
 | **Typography** | Plus Jakarta Sans, Inter |
 | **Icons** | Lucide React |
-| **Backend/DB** | Supabase (PostgreSQL) |
-| **Auth** | Supabase Auth (`@supabase/ssr`) |
+| **Backend/DB** | PostgreSQL |
+| **Auth** | Server-side Session Auth |
 | **Storage** | Supabase Storage |
 | **Language** | TypeScript 5 |
 | **Linting** | ESLint (Next.js config) |
@@ -99,7 +99,7 @@ UZHAVAR OS (Next.js App Router)
 ├── /dashboard         → Batch list & management
 └── /batch/[id]        → CropChain Lens Workstation
 
-Service Layer (src/lib/supabase/service.ts)
+Service Layer (src/lib/service.ts)
 ├── Auth: getCurrentUser, signIn, signUp, signOut
 ├── Batches: getBatches, createBatch, getBatchById
 ├── Chain Stages: getChainStages
@@ -107,7 +107,7 @@ Service Layer (src/lib/supabase/service.ts)
 ├── Batch Notes: getBatchNotes, addBatchNote
 └── Media: uploadMedia, getMediaAssets, getSignedUrl
 
-Supabase Backend
+PostgreSQL Database Layer
 ├── PostgreSQL: profiles, crop_batches, chain_stages,
 │              transactions, batch_notes, media_assets
 ├── Auth: Email/password sessions (cookie-based SSR)
@@ -118,7 +118,7 @@ Supabase Backend
 
 ## Database Schema
 
-Full schema: `supabase/schema.sql`
+Full schema: `db/schema.sql`
 
 | Table | Purpose |
 |-------|---------|
@@ -197,24 +197,24 @@ cp .env.example .env.local
 Edit `.env.local`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+DATABASE_URL=postgresql://user:password@localhost:5432/uzhavar_os
+SESSION_SECRET=your-secure-session-secret
 ```
 
 ### 3. Initialise the database
 
-Run `supabase/schema.sql` in your Supabase SQL Editor.
+Run `db/schema.sql` in your Supabase SQL Editor.
 
 ### 4. Create Storage buckets
 
-In Supabase Dashboard → Storage → New bucket:
+Configure your PostgreSQL connection in .env.local
 
 | Bucket name | Public |
 |-------------|--------|
 | `crop-images` | No (private) |
 | `batch-documents` | No (private) |
 
-Then apply the RLS policies from `supabase/schema.sql`.
+Then apply the RLS policies from `db/schema.sql`.
 
 ### 5. Start the development server
 
@@ -299,7 +299,7 @@ All strings live in `src/translations/`.
 
 ---
 
-## Supabase Setup
+## PostgreSQL Setup
 
 ### Storage RLS Policies
 

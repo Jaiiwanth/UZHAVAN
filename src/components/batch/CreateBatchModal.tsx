@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { supabaseService, DbCropBatch } from '@/lib/supabase/service';
+import { localService, DbCropBatch } from '@/lib/service';
 import { Language } from '@/types';
 import { Icon } from '@/components/ui/Icon';
 import { useRouter } from 'next/navigation';
@@ -51,7 +51,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      const res = await supabaseService.createBatch({
+      const res = await localService.createBatch({
         cropName: cropName.trim(),
         quantityKg: qty,
         variety: variety.trim() || undefined,
