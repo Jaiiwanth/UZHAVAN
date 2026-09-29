@@ -214,3 +214,40 @@ export interface RelationalFactor {
   readonly detailTamil?: string;
   readonly defaultChecked: boolean;
 }
+
+// ==========================================
+// MEDIA ASSETS (Supabase Storage)
+// ==========================================
+
+export type MediaAssetType = 'crop_image' | 'pdf_report' | 'certificate' | 'receipt' | 'other';
+export type StorageBucket = 'crop-images' | 'batch-documents';
+
+export interface MediaAsset {
+  id: string;
+  user_id: string;
+  batch_id?: string | null;
+  asset_type: MediaAssetType;
+  bucket_name: StorageBucket;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  description?: string | null;
+  is_public: boolean;
+  created_at: string;
+  // Derived — not stored in DB, added client-side after getSignedUrl
+  signed_url?: string;
+}
+
+export interface UploadMediaInput {
+  file: File;
+  batchId?: string;
+  assetType: MediaAssetType;
+  description?: string;
+}
+
+export interface UploadMediaResult {
+  asset: MediaAsset | null;
+  signedUrl: string | null;
+  error: string | null;
+}

@@ -8,6 +8,11 @@ import {
   Transaction,
   BatchNote,
   CreateBatchInput,
+  MediaAsset,
+  MediaAssetType,
+  StorageBucket,
+  UploadMediaInput,
+  UploadMediaResult,
 } from '@/types';
 
 // Backward-compatible type aliases
@@ -546,6 +551,165 @@ class SupabaseService {
     setStorage(notesKey, JSON.stringify(list));
     return true;
   }
+
+  // ==========================================
+  // MEDIA ASSETS (Supabase Storage)
+  // ==========================================
+
+  private getBucketForAssetType(assetType: MediaAssetType): StorageBucket {
+    return assetType === 'crop_image' ? 'crop-images' : 'batch-documents';
+  }
+
+  private getMaxFileSizeBytes(bucket: StorageBucket): number {
+    return bucket === 'crop-images' ? 10 * 1024 * 1024 : 50 * 1024 * 1024;
+  }
+
+  private validateFile(file: File, bucket: StorageBucket): string | null {
+    const maxSize = this.getMaxFileSizeBytes(bucket);
+    if (file.size > maxSize) {
+      const maxMb = maxSize / (1024 * 1024);
+      return `File is too large. Maximum size for this type is ${maxMb} MB.`;
+    }
+    const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedDocTypes = ['application/pdf'];
+    const allowed = bucket === 'crop-images' ? allowedImageTypes : [...allowedDocTypes, ...allowedImageTypes];
+    if (!allowed.includes(file.type)) {
+      return `File type "${file.type}" is not allowed for this upload category.`;
+    }
+    return null;
+  }
+
+  async uploadMedia(input: UploadMediaInput): Promise<UploadMediaResult> {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !isSupabaseConfigured) {
+      return { asset: null, signedUrl: null, error: 'Supabase is not configured. Cannot upload files in offline mode.' };
+    }
+
+    const currentUser = await this.getCurrentUser();
+    if (!currentUser) {
+      return { asset: null, signedUrl: null, error: 'You must be signed in to upload files.' };
+    }
+
+    const { file, batchId, assetType, description } = input;
+    const bucket = this.getBucketForAssetType(assetType);
+    const validationError = this.validateFile(file, bucket);
+    if (validationError) {
+      return { asset: null, signedUrl: null, error: validationError };
+    }
+
+    // Build a unique, RLS-compatible storage path: {userId}/{batchId}/{timestamp}_{filename}
+    const timestamp = Date.now();
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const pathParts = [currentUser.id];
+    if (batchId) pathParts.push(batchId);
+    pathParts.push(`${timestamp}_${safeName}`);
+    const storagePath = pathParts.join('/');
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(storagePath, file, { upsert: false, contentType: file.type });
+
+    if (uploadError) {
+      return { asset: null, signedUrl: null, error: `Upload failed: ${uploadError.message}` };
+    }
+
+    // Insert metadata row
+    const { data: assetRow, error: insertError } = await supabase
+      .from('media_assets')
+      .insert({
+        user_id: currentUser.id,
+        batch_id: batchId || null,
+        asset_type: assetType,
+        bucket_name: bucket,
+        storage_path: storagePath,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type,
+        description: description || null,
+        is_public: false,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      // Best-effort cleanup: remove the uploaded file if metadata insert fails
+      await supabase.storage.from(bucket).remove([storagePath]);
+      return { asset: null, signedUrl: null, error: `Metadata save failed: ${insertError.message}` };
+    }
+
+    // Generate a 1-hour signed URL for immediate use
+    const { data: urlData } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(storagePath, 3600);
+
+    const asset = assetRow as MediaAsset;
+    if (urlData?.signedUrl) asset.signed_url = urlData.signedUrl;
+
+    return { asset, signedUrl: urlData?.signedUrl ?? null, error: null };
+  }
+
+  async getMediaAssets(): Promise<MediaAsset[]> {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !isSupabaseConfigured) return [];
+    const { data, error } = await supabase
+      .from('media_assets')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data as MediaAsset[];
+  }
+
+  async getMediaAssetsByBatch(batchId: string): Promise<MediaAsset[]> {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !isSupabaseConfigured) return [];
+    const { data, error } = await supabase
+      .from('media_assets')
+      .select('*')
+      .eq('batch_id', batchId)
+      .order('created_at', { ascending: false });
+    if (error || !data) return [];
+    return data as MediaAsset[];
+  }
+
+  async getSignedUrl(assetId: string, expiresInSeconds = 3600): Promise<string | null> {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !isSupabaseConfigured) return null;
+    const { data: asset, error: fetchError } = await supabase
+      .from('media_assets')
+      .select('bucket_name, storage_path')
+      .eq('id', assetId)
+      .single();
+    if (fetchError || !asset) return null;
+    const { data: urlData } = await supabase.storage
+      .from(asset.bucket_name as StorageBucket)
+      .createSignedUrl(asset.storage_path, expiresInSeconds);
+    return urlData?.signedUrl ?? null;
+  }
+
+  async deleteMediaAsset(assetId: string): Promise<{ error: string | null }> {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase || !isSupabaseConfigured) {
+      return { error: 'Supabase is not configured.' };
+    }
+    const { data: asset, error: fetchError } = await supabase
+      .from('media_assets')
+      .select('bucket_name, storage_path')
+      .eq('id', assetId)
+      .single();
+    if (fetchError || !asset) return { error: 'Asset not found.' };
+    const { error: storageError } = await supabase.storage
+      .from(asset.bucket_name as StorageBucket)
+      .remove([asset.storage_path]);
+    if (storageError) return { error: `Storage delete failed: ${storageError.message}` };
+    const { error: dbError } = await supabase
+      .from('media_assets')
+      .delete()
+      .eq('id', assetId);
+    if (dbError) return { error: `Database delete failed: ${dbError.message}` };
+    return { error: null };
+  }
+
 }
 
 export const supabaseService = new SupabaseService();

@@ -208,3 +208,98 @@ $$ language plpgsql security definer;
 create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- ==============================================================================
+-- MEDIA ASSETS TABLE (Supabase Storage metadata)
+-- Links uploaded images and PDF files to crop batches and users
+-- ==============================================================================
+
+create table if not exists public.media_assets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  batch_id uuid references public.crop_batches(id) on delete set null,
+  asset_type text not null default 'other' check (
+    asset_type in ('crop_image', 'pdf_report', 'certificate', 'receipt', 'other')
+  ),
+  bucket_name text not null check (bucket_name in ('crop-images', 'batch-documents')),
+  storage_path text not null,          -- full path inside the bucket
+  file_name text not null,
+  file_size bigint not null check (file_size > 0),
+  mime_type text not null,
+  description text,
+  is_public boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- Index for efficient per-user and per-batch lookups
+create index if not exists idx_media_assets_user_id on public.media_assets(user_id);
+create index if not exists idx_media_assets_batch_id on public.media_assets(batch_id);
+
+-- RLS: strict user-level isolation
+alter table public.media_assets enable row level security;
+
+create policy "Users can view own media assets"
+  on public.media_assets for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own media assets"
+  on public.media_assets for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own media assets"
+  on public.media_assets for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own media assets"
+  on public.media_assets for delete
+  using (auth.uid() = user_id);
+
+-- ==============================================================================
+-- STORAGE BUCKET CONFIGURATION
+-- Run these after creating the buckets in the Supabase Dashboard
+-- (Dashboard → Storage → New bucket → name as below, set Public = false)
+-- ==============================================================================
+
+-- Storage RLS: crop-images bucket (private, user-folder isolation)
+create policy "Users upload own crop images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'crop-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users read own crop images"
+  on storage.objects for select
+  using (
+    bucket_id = 'crop-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users delete own crop images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'crop-images'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+-- Storage RLS: batch-documents bucket (private, user-folder isolation)
+create policy "Users upload own batch documents"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'batch-documents'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users read own batch documents"
+  on storage.objects for select
+  using (
+    bucket_id = 'batch-documents'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Users delete own batch documents"
+  on storage.objects for delete
+  using (
+    bucket_id = 'batch-documents'
+    and auth.uid()::text = (storage.foldername(name))[1]
+  );
