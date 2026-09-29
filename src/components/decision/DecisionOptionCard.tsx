@@ -32,7 +32,7 @@ export const DecisionOptionCard: React.FC<DecisionOptionCardProps> = ({
     >
       <div>
         {/* Card Top Row */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 flex-wrap gap-2">
           <div className="flex items-center space-x-3">
             <div
               className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${

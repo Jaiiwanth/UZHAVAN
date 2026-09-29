@@ -47,3 +47,6 @@ next-env.d.ts
 
 # Vercel
 .vercel
+
+# local db persistence data
+db/uzhavar_pg_data.json

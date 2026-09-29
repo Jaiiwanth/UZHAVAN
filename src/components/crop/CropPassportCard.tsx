@@ -26,29 +26,33 @@ export const CropPassportCard: React.FC<CropPassportCardProps> = ({
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
 
+  const displayDate = batch.harvestDate || batch.createdDate || batch.harvestTime || notRecorded;
+
   return (
     <section
-      className="bg-white rounded-3xl border border-slate-100 shadow-soft-card p-6 md:p-8 transition-all overflow-hidden"
+      className="bg-white rounded-3xl border border-slate-200/80 shadow-soft-card p-6 md:p-8 transition-all overflow-hidden"
       id="crop-passport"
     >
       {/* Top Header Row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-slate-100 gap-3">
         <div className="space-y-1 min-w-0">
           <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 text-xs rounded-full font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0">
+            <span className="px-3 py-1 bg-emerald-100 text-emerald-900 text-xs rounded-full font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
               {t.passport.certifiedBadge}
             </span>
-            <span className="font-mono text-slate-400 font-bold text-xs truncate">{batch.lotId}</span>
+            <span className="font-mono text-slate-600 font-bold text-xs truncate bg-slate-100 px-2 py-0.5 rounded-md">
+              {batch.lotId}
+            </span>
             <span className="text-slate-300 text-xs hidden sm:inline">•</span>
             <span className="text-xs text-slate-500 font-medium">
-              {batch.harvestDate || batch.harvestTime || notRecorded}
+              {displayDate}
             </span>
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2 flex-wrap break-words">
+          <h2 className="text-2xl font-extrabold text-slate-900 flex items-center gap-2 flex-wrap break-words mt-1">
             <span>{t.passport.reportTitle}</span>
-            <span className="text-sm font-normal text-slate-400 hidden sm:inline font-mono">
-              ({batch.crop} • {batch.grade || notRecorded})
+            <span className="text-sm font-semibold text-slate-500 hidden sm:inline font-mono">
+              ({batch.crop} • {Number(batch.quantityKg).toLocaleString('en-IN')} {t.common.kg})
             </span>
           </h2>
         </div>
@@ -66,7 +70,7 @@ export const CropPassportCard: React.FC<CropPassportCardProps> = ({
           <button
             type="button"
             onClick={onOpenQrModal}
-            className="px-4 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
+            className="px-4 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center space-x-1.5 transition-colors shadow-xs cursor-pointer hover:bg-amber-400 hover:text-slate-950"
           >
             <Icon name="qr_code_scanner" size={16} />
             <span>{t.passport.actionQr}</span>
@@ -75,7 +79,7 @@ export const CropPassportCard: React.FC<CropPassportCardProps> = ({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-1.5 bg-slate-100/80 p-1 rounded-full border border-slate-200/50 mt-5 overflow-x-auto w-fit max-w-full">
+      <div className="flex items-center space-x-1.5 bg-slate-100 p-1 rounded-full border border-slate-200/60 mt-5 overflow-x-auto w-fit max-w-full">
         <button
           type="button"
           onClick={() => setActiveTab('overview')}
@@ -120,125 +124,154 @@ export const CropPassportCard: React.FC<CropPassportCardProps> = ({
       <div className="mt-5">
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{t.dashboard.produceSelection}</span>
-              <span className="font-extrabold text-slate-900 text-sm block mt-1 truncate">
-                {batch.crop} ({batch.variety || notRecorded})
+            {/* 1. Produce & Selection */}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold block uppercase tracking-wider">{t.dashboard.produceSelection}</span>
+              <span className="font-extrabold text-slate-900 text-base block mt-1 truncate">
+                {batch.crop}
               </span>
-              <span className="text-[11px] text-emerald-700 font-bold block mt-1">
-                {batch.grade || notRecorded}
+              <span className="text-xs text-slate-600 font-medium block mt-1 truncate">
+                {batch.variety || notRecorded} • {batch.grade || 'Grade A'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{t.passport.weight}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm block mt-1">
+            {/* 2. Weight */}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold block uppercase tracking-wider">{t.passport.weight}</span>
+              <span className="font-mono font-extrabold text-slate-900 text-base block mt-1">
                 {Number(batch.quantityKg).toLocaleString('en-IN')} {t.common.kg}
               </span>
-              <span className="text-[11px] text-slate-500 block mt-1 font-medium truncate">
-                {Math.ceil(batch.quantityKg / 20)} {isTa ? 'பெட்டிகள் • 20 கிலோ நிலையான எடை' : 'crates • 20 kg standard tare'}
+              <span className="text-xs text-slate-500 block mt-1 font-medium truncate">
+                {Math.ceil(batch.quantityKg / 20)} {isTa ? 'பெட்டிகள் (20 கிலோ நிலையான எடை)' : 'standard 20kg crates'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{t.passport.origin}</span>
-              <span className="font-bold text-slate-900 text-xs block mt-1 truncate">
+            {/* 3. Origin Cluster */}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold block uppercase tracking-wider">{t.passport.origin}</span>
+              <span className="font-bold text-slate-900 text-sm block mt-1 truncate">
                 {batch.origin || notRecorded}
               </span>
-              <span className="text-[11px] font-mono text-slate-400 block mt-1">
-                {batch.origin ? (isTa ? 'சரிபார்க்கப்பட்ட மண்டல மையம்' : 'Verified Regional Hub') : notRecorded}
+              <span className="text-[11px] font-mono text-emerald-800 font-semibold block mt-1">
+                {batch.origin ? (isTa ? 'சரிபார்க்கப்பட்ட புவி-மூலம்' : 'Verified Cluster') : notRecorded}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{t.passport.trustSignature}</span>
-              <span className="font-mono text-[11px] text-slate-700 font-bold block mt-1 truncate">
+            {/* 4. Seal Signature */}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold block uppercase tracking-wider">{t.passport.trustSignature}</span>
+              <span className="font-mono text-xs text-slate-700 font-bold block mt-1 truncate">
                 {batch.sealSignature || 'SHA256:AUTHENTICATED'}
               </span>
-              <span className="text-[11px] text-emerald-700 flex items-center gap-1 mt-1 font-bold">
+              <span className="text-[11px] text-emerald-800 flex items-center gap-1 mt-1 font-bold">
                 <Icon name="verified" size={13} />
-                <span>{isTa ? 'முத்திரையிடப்பட்டது' : 'Signed by Producer Key'}</span>
+                <span>{isTa ? 'உழவர் டிஜிட்டல் முத்திரை' : 'Signed & Sealed'}</span>
               </span>
             </div>
           </div>
         )}
 
+        {/* Tab 2: Lab & Residue Specs - Truthful DB Display: Show 'Not recorded' if not recorded */}
         {activeTab === 'lab' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/70 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-emerald-900 font-bold uppercase">{isTa ? 'பூச்சிக்கொல்லி எச்சம்' : 'Pesticide Residue'}</span>
-                <Icon name="check_circle" size={16} className="text-emerald-700" />
-              </div>
-              <span className="font-extrabold text-slate-900 text-sm block mt-1">
-                {isTa ? '0.00 ppm (பூஜ்ஜிய எச்சம்)' : '0.00 ppm (Zero Residue)'}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {isTa ? 'பூச்சிக்கொல்லி எச்சம்' : 'Pesticide Residue'}
               </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                {isTa ? 'வாயு குரோமடோகிராபி தேர்ச்சி' : 'Gas chromatography pass'}
+              <span className="font-bold text-slate-600 text-sm block mt-1">
+                {notRecorded}
               </span>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{t.passport.brix}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm block mt-1">4.6° Bx</span>
-              <span className="text-[11px] text-emerald-700 font-semibold block mt-0.5">
-                {isTa ? 'சரியான கனிவுத் தரம்' : 'Optimal firm ripeness'}
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'ஆய்வக சோதனை நிலுவையில் உள்ளது' : 'Lab test pending'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{t.passport.firmness}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm block mt-1">8.2 N (Newton)</span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                {isTa ? 'பெனிட்ரோமீட்டர் சோதனை செய்யப்பட்டது' : 'Penetrometer tested'}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {t.passport.brix}
+              </span>
+              <span className="font-bold text-slate-600 text-sm block mt-1">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'பிரிக்ஸ் சோதனை செய்யப்படவில்லை' : 'Brix test not conducted'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{isTa ? 'உணவு பாதுகாப்பு உரிமம்' : 'FSSAI Traceability'}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-xs block mt-1 truncate">
-                FSSAI-TN-2026-REG
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {t.passport.firmness}
               </span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                {isTa ? 'மூலக் கண்காணிப்பு பதிவு செய்யப்பட்டது' : 'Traceability registered'}
+              <span className="font-bold text-slate-600 text-sm block mt-1">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'பெனிட்ரோமீட்டர் பதிவு இல்லை' : 'Penetrometer reading absent'}
+              </span>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {isTa ? 'உணவு பாதுகாப்பு சான்றிதழ்' : 'FSSAI Certification'}
+              </span>
+              <span className="font-bold text-slate-600 text-sm block mt-1 truncate">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'சான்றிதழ் பதிவேற்றப்படவில்லை' : 'Certificate not uploaded'}
               </span>
             </div>
           </div>
         )}
 
+        {/* Tab 3: Sensors & Environmental - Truthful DB Display */}
         {activeTab === 'sensors' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{isTa ? 'மண் கார அமிலத்தன்மை (pH)' : 'Soil pH Level'}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm block mt-1">6.8 pH</span>
-              <span className="text-[11px] text-emerald-700 font-semibold block mt-0.5">
-                {isTa ? 'ஏற்ற ஊட்டச்சத்து நிலை' : 'Ideal availability'}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {isTa ? 'மண் கார அமிலத்தன்மை (pH)' : 'Soil pH Level'}
+              </span>
+              <span className="font-bold text-slate-600 text-sm block mt-1">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'மண் சென்சார் இணைக்கப்படவில்லை' : 'Soil sensor not connected'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{isTa ? 'அறுவடை சூழல் வெப்பநிலை' : 'Ambient Harvest Temp'}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm block mt-1">28.4° C</span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                {isTa ? 'அதிகாலை பறிப்பு' : 'Early morning picking'}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {isTa ? 'அறுவடை சூழல் வெப்பநிலை' : 'Ambient Harvest Temp'}
+              </span>
+              <span className="font-bold text-slate-600 text-sm block mt-1">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'வெப்பநிலை பதிவு இல்லை' : 'Ambient telemetry not logged'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{isTa ? 'ஒப்பீட்டு ஈரப்பதம்' : 'Relative Humidity'}</span>
-              <span className="font-mono font-extrabold text-slate-900 text-sm block mt-1">68% RH</span>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                {isTa ? 'குறைந்த நீர்ச்சத்து இழப்பு ஆபத்து' : 'Low dehydration risk'}
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {isTa ? 'ஒப்பீட்டு ஈரப்பதம்' : 'Relative Humidity'}
+              </span>
+              <span className="font-bold text-slate-600 text-sm block mt-1">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'ஈரப்பதம் பதிவு இல்லை' : 'Humidity sensor absent'}
               </span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-50/70 border border-slate-200/60 min-w-0">
-              <span className="text-xs text-slate-400 font-medium block">{isTa ? 'சென்சார் இணைப்பு முனையம்' : 'IoT Node ID'}</span>
-              <span className="font-mono text-xs text-slate-900 font-bold block mt-1 truncate">
-                IOT-TELEMETRY-HUB
+            <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/80 min-w-0">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider block">
+                {isTa ? 'IoT சென்சார் முனையம்' : 'IoT Node ID'}
               </span>
-              <span className="text-[11px] text-emerald-700 font-semibold block mt-0.5">
-                {isTa ? 'நேரடி சென்சார் இணைப்பு தயார்' : 'Live telemetry ready'}
+              <span className="font-bold text-slate-600 text-sm block mt-1 truncate">
+                {notRecorded}
+              </span>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                {isTa ? 'சென்சார் இணைப்பு தயாராக இல்லை' : 'Telemetry node inactive'}
               </span>
             </div>
           </div>
@@ -246,30 +279,30 @@ export const CropPassportCard: React.FC<CropPassportCardProps> = ({
 
         {/* Collapsible Full Specs Section */}
         {isExpanded && (
-          <div className="mt-4 p-5 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="mt-4 p-5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between pb-2 border-b border-slate-200 flex-wrap gap-2">
               <span className="font-extrabold text-slate-900">
-                {isTa ? 'விவசாயி அடையாள சான்று & கூட்டுறவு விவரங்கள்' : 'Producer Credentials & Batch Details'}
+                {isTa ? 'விவசாயி அடையாள சான்று & தொகுதி விவரங்கள்' : 'Producer Credentials & Batch Details'}
               </span>
-              <span className="font-mono text-slate-400 font-bold">{batch.lotId}</span>
+              <span className="font-mono text-slate-500 font-bold">{batch.lotId}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
-                <span className="text-slate-400 block">{isTa ? 'விவசாயி பெயர்' : 'Producer'}:</span>
-                <span className="font-bold text-slate-900 truncate block">
+                <span className="text-slate-400 block font-medium">{isTa ? 'விவசாயி பெயர்' : 'Producer'}:</span>
+                <span className="font-bold text-slate-900 truncate block mt-0.5">
                   {batch.ownerName || batch.owner || notRecorded}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block">{isTa ? 'அறுவடை நாள்' : 'Recorded Date'}:</span>
-                <span className="font-bold text-slate-900">
-                  {batch.createdDate || batch.harvestDate || batch.harvestTime || notRecorded}
+                <span className="text-slate-400 block font-medium">{isTa ? 'அறுவடை நாள்' : 'Recorded Date'}:</span>
+                <span className="font-bold text-slate-900 block mt-0.5">
+                  {displayDate}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block">{isTa ? 'விவசாய முறை' : 'Agronomic Cultivation'}:</span>
-                <span className="font-bold text-slate-900">
-                  {isTa ? 'சொட்டு நீர் பாசனம் • ஒருங்கிணைந்த பூச்சி மேலாண்மை' : 'Drip Irrigated • Integrated Pest Management'}
+                <span className="text-slate-400 block font-medium">{isTa ? 'பண்ணை அமைவிடம்' : 'Farm Location'}:</span>
+                <span className="font-bold text-slate-900 block mt-0.5 truncate">
+                  {batch.origin || notRecorded}
                 </span>
               </div>
             </div>

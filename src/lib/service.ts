@@ -8,8 +8,6 @@ import {
   BatchNote,
   CreateBatchInput,
   MediaAsset,
-  MediaAssetType,
-  StorageBucket,
   UploadMediaInput,
   UploadMediaResult,
 } from '@/types';
@@ -29,22 +27,18 @@ export type DbCropBatch = CropBatch;
 export type DbChainStage = ChainStage;
 export type DbBatchNote = BatchNote;
 
-// Local storage keys for offline fallback / client cache
+// Client cache key for instant hydration
 const LOCAL_AUTH_KEY = 'uzhavar_current_user';
-const LOCAL_BATCHES_PREFIX = 'uzhavar_batches_';
-const LOCAL_NOTES_PREFIX = 'uzhavar_notes_';
-
-const memoryStore: Record<string, string> = {};
 
 function getStorage(key: string): string | null {
   if (typeof window !== 'undefined' && window.localStorage) {
     try {
       return localStorage.getItem(key);
     } catch {
-      return memoryStore[key] ?? null;
+      return null;
     }
   }
-  return memoryStore[key] ?? null;
+  return null;
 }
 
 function setStorage(key: string, value: string): void {
@@ -52,10 +46,8 @@ function setStorage(key: string, value: string): void {
     try {
       localStorage.setItem(key, value);
     } catch {
-      memoryStore[key] = value;
+      // ignore
     }
-  } else {
-    memoryStore[key] = value;
   }
 }
 
@@ -64,45 +56,14 @@ function removeStorage(key: string): void {
     try {
       localStorage.removeItem(key);
     } catch {
-      delete memoryStore[key];
+      // ignore
     }
-  } else {
-    delete memoryStore[key];
   }
-}
-
-function encodeId(str: string): string {
-  if (typeof btoa !== 'undefined') {
-    return btoa(str).replace(/[^a-zA-Z0-9]/g, '').substring(0, 12);
-  }
-  return Buffer.from(str).toString('base64').replace(/[^a-zA-Z0-9]/g, '').substring(0, 12);
-}
-
-// Generate unique batch identifier
-export function generateBatchId(): string {
-  const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-  let randomPart = '';
-  for (let i = 0; i < 6; i++) {
-    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `UZH-2026-${randomPart}`;
-}
-
-export function generateSha256Sig(batchId: string, crop: string, qty: number): string {
-  const timestamp = new Date().toISOString();
-  const raw = `${batchId}:${crop}:${qty}kg:${timestamp}`;
-  let hash = 0;
-  for (let i = 0; i < raw.length; i++) {
-    hash = (hash << 5) - hash + raw.charCodeAt(i);
-    hash |= 0;
-  }
-  const hex = Math.abs(hash).toString(16).padStart(8, '0').toUpperCase();
-  return `SHA256:${hex.substring(0, 4)}...${hex.substring(4)}`;
 }
 
 class PostgresClientService {
   // ==========================================
-  // AUTHENTICATION (POSTGRESQL API + LOCAL SYNC)
+  // AUTHENTICATION (POSTGRESQL SERVER-SIDE)
   // ==========================================
 
   async getCurrentUser(): Promise<UserProfile | null> {
@@ -114,10 +75,13 @@ class PostgresClientService {
           if (data.user) {
             setStorage(LOCAL_AUTH_KEY, JSON.stringify(data.user));
             return data.user;
+          } else {
+            removeStorage(LOCAL_AUTH_KEY);
+            return null;
           }
         }
       } catch {
-        // Fall back to stored session if server check fails
+        // Fall back to cached session if network glitch
       }
     }
 
@@ -133,7 +97,7 @@ class PostgresClientService {
   }
 
   async signInWithEmail(email: string, password: string): Promise<{ user: UserProfile | null; error: string | null }> {
-    if (!email.includes('@') || password.length < 6) {
+    if (!email || !email.includes('@') || password.length < 6) {
       return { user: null, error: 'Please enter a valid email and minimum 6-character password.' };
     }
 
@@ -141,7 +105,7 @@ class PostgresClientService {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
         credentials: 'include',
       });
 
@@ -151,36 +115,15 @@ class PostgresClientService {
         return { user: data.user, error: null };
       }
 
-      // If database is not yet provisioned, provide helpful dev fallback
-      if (res.status === 503) {
-        const fallbackUser: UserProfile = {
-          id: `usr_${encodeId(email)}`,
-          email,
-          fullName: email.split('@')[0],
-          role: 'farmer',
-          preferredLanguage: 'ta',
-        };
-        setStorage(LOCAL_AUTH_KEY, JSON.stringify(fallbackUser));
-        return { user: fallbackUser, error: null };
-      }
-
-      return { user: null, error: data.error || 'Failed to authenticate.' };
-    } catch {
-      // Local fallback for offline mode
-      const fallbackUser: UserProfile = {
-        id: `usr_${encodeId(email)}`,
-        email,
-        fullName: email.split('@')[0],
-        role: 'farmer',
-        preferredLanguage: 'ta',
-      };
-      setStorage(LOCAL_AUTH_KEY, JSON.stringify(fallbackUser));
-      return { user: fallbackUser, error: null };
+      return { user: null, error: data.error || 'Invalid email or password.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error during login.';
+      return { user: null, error: msg };
     }
   }
 
   async signUpWithEmail(email: string, password: string, fullName: string): Promise<{ user: UserProfile | null; error: string | null }> {
-    if (!email.includes('@') || password.length < 6) {
+    if (!email || !email.includes('@') || password.length < 6) {
       return { user: null, error: 'Please enter a valid email and minimum 6-character password.' };
     }
 
@@ -188,7 +131,11 @@ class PostgresClientService {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName }),
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+          fullName: fullName.trim(),
+        }),
         credentials: 'include',
       });
 
@@ -198,29 +145,10 @@ class PostgresClientService {
         return { user: data.user, error: null };
       }
 
-      if (res.status === 503) {
-        const fallbackUser: UserProfile = {
-          id: `usr_${encodeId(email)}`,
-          email,
-          fullName: fullName || email.split('@')[0],
-          preferredLanguage: 'ta',
-          role: 'farmer',
-        };
-        setStorage(LOCAL_AUTH_KEY, JSON.stringify(fallbackUser));
-        return { user: fallbackUser, error: null };
-      }
-
       return { user: null, error: data.error || 'Registration failed.' };
-    } catch {
-      const fallbackUser: UserProfile = {
-        id: `usr_${encodeId(email)}`,
-        email,
-        fullName: fullName || email.split('@')[0],
-        preferredLanguage: 'ta',
-        role: 'farmer',
-      };
-      setStorage(LOCAL_AUTH_KEY, JSON.stringify(fallbackUser));
-      return { user: fallbackUser, error: null };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error during registration.';
+      return { user: null, error: msg };
     }
   }
 
@@ -251,22 +179,12 @@ class PostgresClientService {
 
       if (res.ok) {
         const data = await res.json();
-        if (data.configured && Array.isArray(data.batches)) {
+        if (Array.isArray(data.batches)) {
           return data.batches;
         }
       }
-    } catch {
-      // Server unreachable, check local store
-    }
-
-    const storageKey = `${LOCAL_BATCHES_PREFIX}${currentUser.id}`;
-    const raw = getStorage(storageKey);
-    if (raw) {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return [];
-      }
+    } catch (err) {
+      console.error('Failed to fetch batches from server:', err);
     }
 
     return [];
@@ -281,24 +199,8 @@ class PostgresClientService {
         const data = await res.json();
         if (data.batch) return data.batch;
       }
-    } catch {
-      // Server unreachable
-    }
-
-    // Check local fallback
-    const currentUser = await this.getCurrentUser();
-    if (currentUser) {
-      const storageKey = `${LOCAL_BATCHES_PREFIX}${currentUser.id}`;
-      const raw = getStorage(storageKey);
-      if (raw) {
-        try {
-          const list: CropBatch[] = JSON.parse(raw);
-          const found = list.find((b) => b.id === idOrBatchId || b.batch_id === idOrBatchId);
-          if (found) return found;
-        } catch {
-          // ignore
-        }
-      }
+    } catch (err) {
+      console.error('Failed to fetch batch from server:', err);
     }
 
     return null;
@@ -333,51 +235,12 @@ class PostgresClientService {
       if (res.ok && data.batch) {
         return { batch: data.batch, error: null };
       }
-      if (data.error && res.status !== 503) {
-        return { batch: null, error: data.error };
-      }
-    } catch {
-      // Server unreachable, fallback to local storage
+
+      return { batch: null, error: data.error || 'Failed to create batch in database.' };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error creating batch.';
+      return { batch: null, error: msg };
     }
-
-    // Local fallback when PostgreSQL is not configured
-    const batchId = generateBatchId();
-    const signature = generateSha256Sig(batchId, input.cropName, input.quantityKg);
-    const nowIso = new Date().toISOString();
-    const harvestDate = input.harvestDate || nowIso.split('T')[0];
-
-    const newRecord: CropBatch = {
-      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `b_${Date.now()}`,
-      batch_id: batchId,
-      user_id: currentUser.id,
-      crop_name: input.cropName.trim(),
-      crop_name_tamil: input.cropNameTamil || input.cropName.trim(),
-      variety: input.variety || 'Local Standard',
-      grade: input.grade || 'Grade A',
-      quantity_kg: Number(input.quantityKg),
-      harvest_date: harvestDate,
-      farm_location: input.farmLocation || 'Salem Agro Cluster',
-      notes: input.initialNote,
-      status: 'CREATED',
-      seal_signature: signature,
-      created_at: nowIso,
-      updated_at: nowIso,
-    };
-
-    const storageKey = `${LOCAL_BATCHES_PREFIX}${currentUser.id}`;
-    const existing = getStorage(storageKey);
-    let list: CropBatch[] = [];
-    if (existing) {
-      try {
-        list = JSON.parse(existing);
-      } catch {
-        list = [];
-      }
-    }
-    list.unshift(newRecord);
-    setStorage(storageKey, JSON.stringify(list));
-
-    return { batch: newRecord, error: null };
   }
 
   // ==========================================
@@ -391,41 +254,16 @@ class PostgresClientService {
       });
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data.stages) && data.stages.length > 0) {
+        if (Array.isArray(data.stages)) {
           return data.stages;
         }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Failed to fetch chain stages:', err);
     }
 
-    // Default stage template for client visualization
-    const nowIso = new Date().toISOString();
-    const stageNodes = [
-      { order: 1, type: 'FARM' as const, name: '1. Farm Gate', tamil: '1. பண்ணை வாசல்', actor: 'Grower Lot Consignor', loc: 'Salem, TN', price: 18.00, status: 'COMPLETED' as const },
-      { order: 2, type: 'AGGREGATION' as const, name: '2. Collection & Aggregation', tamil: '2. சேகரிப்பு மையம்', actor: 'FPO Aggregator', loc: 'Salem Agro Hub', price: 21.00, status: 'IN_PROGRESS' as const },
-      { order: 3, type: 'LOGISTICS' as const, name: '3. Logistics & Transport', tamil: '3. போக்குவரத்து', actor: 'Cold Transport Provider', loc: 'NH-44 Corridor', price: 24.50, status: 'PENDING' as const },
-      { order: 4, type: 'MANDI' as const, name: '4. Wholesale Mandi', tamil: '4. மொத்த விற்பனை மண்டி', actor: 'Licensed APMC Trader', loc: 'Koyambedu Wholesale Hub', price: 28.00, status: 'PENDING' as const },
-      { order: 5, type: 'RETAIL' as const, name: '5. Retail & Direct Delivery', tamil: '5. சில்லறை விற்பனை புள்ளி', actor: 'Farm-to-Fork Direct Outlet', loc: 'Chennai Urban Cluster', price: 32.00, status: 'PENDING' as const },
-    ];
-
-    return stageNodes.map((s) => ({
-      id: `stage_${batchId}_${s.order}`,
-      batch_id: batchId,
-      stage_order: s.order,
-      stage_type: s.type,
-      stage_name: s.name,
-      node_name: s.name,
-      node_name_tamil: s.tamil,
-      actor_name: s.actor,
-      location: s.loc,
-      price_per_kg: s.price,
-      recorded_at: nowIso,
-      status: s.status,
-      verified_evidence: ['Digital Scale Telemetry', 'TNOALP Protocol Sig'],
-      notes: `${s.name} node verification`,
-      created_at: nowIso,
-    }));
+    // Do NOT fabricate stages. If not recorded in DB, return empty array!
+    return [];
   }
 
   // ==========================================
@@ -433,22 +271,22 @@ class PostgresClientService {
   // ==========================================
 
   async getTransactions(batchId: string): Promise<Transaction[]> {
-    const nowIso = new Date().toISOString();
-    return [
-      {
-        id: `txn_${batchId}_1`,
-        batch_id: batchId,
-        transaction_type: 'SALE',
-        quantity_kg: 800,
-        price_per_kg: 18.0,
-        total_amount: 14400,
-        gross_amount: 14400,
-        net_amount: 14400,
-        payment_mode: 'UPI / Direct Bank Transfer',
-        recorded_at: nowIso,
-        notes: 'Farm gate sale transaction verified with digital signature',
-      },
-    ];
+    try {
+      const res = await fetch(`/api/batches/${encodeURIComponent(batchId)}/transactions`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.transactions)) {
+          return data.transactions;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch transactions:', err);
+    }
+
+    // Do NOT fabricate transactions. If none exist, return empty array!
+    return [];
   }
 
   // ==========================================
@@ -466,18 +304,10 @@ class PostgresClientService {
           return data.notes;
         }
       }
-    } catch {
-      // fallback
+    } catch (err) {
+      console.error('Failed to fetch batch notes:', err);
     }
 
-    const raw = getStorage(`${LOCAL_NOTES_PREFIX}${batchId}`);
-    if (raw) {
-      try {
-        return JSON.parse(raw);
-      } catch {
-        return [];
-      }
-    }
     return [];
   }
 
@@ -496,32 +326,11 @@ class PostgresClientService {
         credentials: 'include',
       });
       if (res.ok) return true;
-    } catch {
-      // fallback
+    } catch (err) {
+      console.error('Failed to save batch note:', err);
     }
 
-    const notesKey = `${LOCAL_NOTES_PREFIX}${batchId}`;
-    const raw = getStorage(notesKey);
-    let list: BatchNote[] = [];
-    if (raw) {
-      try {
-        list = JSON.parse(raw);
-      } catch {
-        list = [];
-      }
-    }
-    list.unshift({
-      id: `note_${Date.now()}`,
-      batch_id: batchId,
-      user_id: currentUser.id,
-      note_type: noteType,
-      note: note.trim(),
-      content: note.trim(),
-      is_confidential: true,
-      created_at: new Date().toISOString(),
-    });
-    setStorage(notesKey, JSON.stringify(list));
-    return true;
+    return false;
   }
 
   // ==========================================

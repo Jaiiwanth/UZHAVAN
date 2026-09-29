@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, initDatabase, hashPassword, createSessionToken, isDatabaseConfigured } from '@/lib/db';
+import { query, initDatabase, hashPassword, createSessionToken } from '@/lib/db';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,13 +15,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Password must be at least 6 characters.' }, { status: 400 });
     }
 
-    if (!isDatabaseConfigured) {
-      return NextResponse.json(
-        { error: 'PostgreSQL database is not configured. Please set DATABASE_URL.' },
-        { status: 503 }
-      );
-    }
-
     await initDatabase();
 
     // Check if user already exists
@@ -29,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'An account with this email already exists.' }, { status: 409 });
     }
 
-    const userId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const userId = crypto.randomUUID();
     const passwordHash = hashPassword(password);
     const displayName = fullName?.trim() || email.split('@')[0];
 

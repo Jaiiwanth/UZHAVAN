@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, initDatabase, verifySessionToken, isDatabaseConfigured } from '@/lib/db';
+import { query, initDatabase, verifySessionToken } from '@/lib/db';
 import { cookies } from 'next/headers';
 import { CropBatch } from '@/types';
+import crypto from 'crypto';
 
 function generateBatchId(): string {
   const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -15,13 +16,7 @@ function generateBatchId(): string {
 function generateSha256Sig(batchId: string, crop: string, qty: number): string {
   const timestamp = new Date().toISOString();
   const raw = `${batchId}:${crop}:${qty}kg:${timestamp}`;
-  let hash = 0;
-  for (let i = 0; i < raw.length; i++) {
-    hash = (hash << 5) - hash + raw.charCodeAt(i);
-    hash |= 0;
-  }
-  const hex = Math.abs(hash).toString(16).padStart(8, '0').toUpperCase();
-  return `SHA256:${hex.substring(0, 4)}...${hex.substring(4)}`;
+  return 'SHA256:' + crypto.createHash('sha256').update(raw).digest('hex').substring(0, 16).toUpperCase();
 }
 
 async function getAuthenticatedUserId(req: NextRequest): Promise<string | null> {
@@ -46,10 +41,6 @@ async function getAuthenticatedUserId(req: NextRequest): Promise<string | null> 
 
 export async function GET(req: NextRequest) {
   try {
-    if (!isDatabaseConfigured) {
-      return NextResponse.json({ batches: [], configured: false });
-    }
-
     await initDatabase();
 
     const userId = await getAuthenticatedUserId(req);
@@ -94,13 +85,6 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!isDatabaseConfigured) {
-      return NextResponse.json(
-        { error: 'PostgreSQL database is not configured. Please set DATABASE_URL.' },
-        { status: 503 }
-      );
-    }
-
     await initDatabase();
 
     const userId = await getAuthenticatedUserId(req);
@@ -122,7 +106,7 @@ export async function POST(req: NextRequest) {
 
     const batchId = generateBatchId();
     const sealSignature = generateSha256Sig(batchId, cropName, qty);
-    const id = `b_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const id = crypto.randomUUID();
     const finalHarvestDate = harvestDate || new Date().toISOString().split('T')[0];
     const finalVariety = variety?.trim() || 'Local Standard';
     const finalGrade = grade?.trim() || 'Grade A';
@@ -152,44 +136,12 @@ export async function POST(req: NextRequest) {
       ]
     );
 
-    // 2. Insert Initial Chain Stages (TNOALP Protocol Provenance Nodes)
-    const stageNodes = [
-      { order: 1, type: 'FARM', name: '1. Farm Gate', tamil: '1. பண்ணை வாசல்', actor: 'Grower Lot Consignor', loc: finalLocation, price: 18.00, status: 'COMPLETED' },
-      { order: 2, type: 'AGGREGATION', name: '2. Village Collection Center', tamil: '2. கிராம சேகரிப்பு மையம்', actor: 'FPO Aggregator', loc: 'Salem Rural Center', price: 21.00, status: 'IN_PROGRESS' },
-      { order: 3, type: 'LOGISTICS', name: '3. Cold Chain Transport', tamil: '3. குளிர்பதன போக்குவரத்து', actor: 'Agro Logistics Carrier', loc: 'NH-44 Corridor', price: 24.50, status: 'PENDING' },
-      { order: 4, type: 'MANDI', name: '4. Wholesale Mandi Hub', tamil: '4. மொத்த விற்பனை மண்டி', actor: 'Licensed Commission Agent', loc: 'Koyambedu Wholesale Hub', price: 28.00, status: 'PENDING' },
-      { order: 5, type: 'RETAIL', name: '5. Retail & Consumer Point', tamil: '5. சில்லறை & நுகர்வோர் புள்ளி', actor: 'Organized Retail Point', loc: 'Urban Distribution Node', price: 32.00, status: 'PENDING' },
-    ];
-
-    for (const node of stageNodes) {
-      await query(
-        `INSERT INTO chain_stages (
-          id, batch_id, stage_order, stage_type, stage_name, node_name, node_name_tamil,
-          actor_name, location, quantity_kg, price_per_kg, recorded_at, status, verified_evidence, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, $11, $12, CURRENT_TIMESTAMP)`,
-        [
-          `stg_${id}_${node.order}`,
-          id,
-          node.order,
-          node.type,
-          node.name,
-          node.tamil,
-          node.actor,
-          node.loc,
-          qty,
-          node.price,
-          node.status,
-          JSON.stringify(['Digital Scale Telemetry', 'TNOALP Protocol Seal']),
-        ]
-      );
-    }
-
-    // 3. Insert Initial Field Note if provided
+    // 2. Insert Initial Field Note if provided
     if (initialNote && initialNote.trim()) {
       await query(
         `INSERT INTO batch_notes (id, batch_id, user_id, note_type, note, is_confidential, created_at)
          VALUES ($1, $2, $3, 'field', $4, true, CURRENT_TIMESTAMP)`,
-        [`note_${Date.now()}`, id, userId, initialNote.trim()]
+        [crypto.randomUUID(), id, userId, initialNote.trim()]
       );
     }
 

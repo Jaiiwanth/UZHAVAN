@@ -213,6 +213,7 @@ export interface RelationalFactor {
   readonly detail: string;
   readonly detailTamil?: string;
   readonly defaultChecked: boolean;
+  readonly weight?: 'CRITICAL' | 'HIGH' | 'MEDIUM';
 }
 
 // ==========================================

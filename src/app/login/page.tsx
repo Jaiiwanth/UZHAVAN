@@ -86,7 +86,7 @@ export default function LoginPage() {
           <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-lg">
             U
           </div>
-          <span className="font-extrabold text-slate-900 tracking-tight text-base">
+          <span className="font-extrabold text-white tracking-tight text-base">
             UZHAVAR <span className="text-emerald-400">OS</span>
           </span>
         </Link>
